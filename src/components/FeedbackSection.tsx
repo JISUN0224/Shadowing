@@ -223,10 +223,10 @@ const FeedbackSection: React.FC<FeedbackSectionProps> = ({
                 </div>
               </div>
 
-              {/* 연습 버튼들 */}
-              <div className="grid grid-cols-2 gap-3">
+              {/* 발음 듣기 버튼 */}
+              <div className="flex justify-center">
                 <button 
-                  className="px-4 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors font-medium"
+                  className="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors font-medium"
                   onClick={() => {
                     // TTS 재생 기능 (실제 구현에서는 Azure TTS 호출)
                     const utterance = new SpeechSynthesisUtterance(selectedWordForPractice);
@@ -235,15 +235,6 @@ const FeedbackSection: React.FC<FeedbackSectionProps> = ({
                   }}
                 >
                   🔊 발음 듣기
-                </button>
-                <button 
-                  className="px-4 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors font-medium"
-                  onClick={() => {
-                    // 녹음 기능 (실제 구현에서는 녹음 API 호출)
-                    alert('녹음 기능은 실제 구현에서 추가됩니다.');
-                  }}
-                >
-                  🎤 녹음 연습
                 </button>
               </div>
 

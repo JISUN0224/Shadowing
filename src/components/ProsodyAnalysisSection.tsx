@@ -6,111 +6,150 @@ interface ProsodyAnalysisSectionProps {
 }
 
 const ProsodyAnalysisSection: React.FC<ProsodyAnalysisSectionProps> = ({ words }) => {
-  // Azure API의 실제 Prosody.Break 데이터 활용
-  const unexpectedBreaks = words.filter(word => 
-    word.feedback?.prosody?.break?.errorTypes?.includes('UnexpectedBreak')
-  );
-  
-  const missingBreaks = words.filter(word =>
-    word.feedback?.prosody?.break?.errorTypes?.includes('MissingBreak')
-  );
-  
-  const monotoneIssues = words.filter(word =>
-    (word.feedback?.prosody?.intonation?.monotone?.confidence ?? 0) > 0.7
-  );
+  // 전체 운율 점수 계산 (모든 단어 정확도 점수의 평균)
+  const overallProsodyScore = words.length > 0 
+    ? words.reduce((sum, word) => sum + (word.accuracyScore || 0), 0) / words.length 
+    : 0;
 
-  // 분석 결과가 없으면 표시하지 않음
-  if (unexpectedBreaks.length === 0 && missingBreaks.length === 0 && monotoneIssues.length === 0) {
-    return (
-      <div className="bg-purple-50 p-6 rounded-xl">
-        <h4 className="text-lg font-semibold mb-4 flex items-center">
-          <span className="text-xl mr-2">🎵</span>
-          운율 분석 (실제 Azure 데이터)
-        </h4>
-        <div className="text-center text-gray-600 py-8">
-          <div className="text-4xl mb-2">🎉</div>
-          <p className="text-lg font-medium">훌륭한 운율입니다!</p>
-          <p className="text-sm mt-2">자연스러운 억양과 적절한 끊어읽기를 보여주셨네요.</p>
-        </div>
-      </div>
-    );
-  }
+  // 억양 변화 데이터 생성 (단어별 정확도 점수 기반)
+  const pitchData = words.map((word, index) => ({
+    x: index,
+    y: word.accuracyScore || 0,
+    word: word.word,
+    score: word.accuracyScore || 0
+  }));
+
+  // 리듬 패턴 데이터 (단어별 점수 기반 지속 시간 시뮬레이션)
+  const rhythmData = words.map((word, index) => ({
+    word: word.word,
+    duration: word.accuracyScore || 0, // 점수가 높을수록 적절한 지속 시간
+    score: word.accuracyScore || 0
+  }));
+
+  // 강세 패턴 데이터
+  const stressData = words.map((word, index) => ({
+    word: word.word,
+    size: (word.accuracyScore || 0) / 10, // 점수 기반 원 크기
+    score: word.accuracyScore || 0
+  }));
+
+  // 색상 함수들
+  const getScoreColor = (score: number) => {
+    if (score >= 80) return 'text-green-600';
+    if (score >= 60) return 'text-yellow-600';
+    return 'text-red-600';
+  };
+
+  const getScoreBgColor = (score: number) => {
+    if (score >= 80) return 'bg-green-100 border-green-300';
+    if (score >= 60) return 'bg-yellow-100 border-yellow-300';
+    return 'bg-red-100 border-red-300';
+  };
+
+  const getGaugeColor = (score: number) => {
+    if (score >= 80) return '#10B981'; // green
+    if (score >= 60) return '#F59E0B'; // yellow
+    return '#EF4444'; // red
+  };
 
   return (
-    <div className="bg-purple-50 p-6 rounded-xl">
-      <h4 className="text-lg font-semibold mb-4 flex items-center">
+    <div className="bg-gradient-to-br from-sky-50 to-blue-50 p-6 rounded-xl border border-sky-200">
+      <h4 className="text-lg font-semibold mb-6 flex items-center">
         <span className="text-xl mr-2">🎵</span>
-        운율 분석 (실제 Azure 데이터)
+        운율 분석
       </h4>
-      
-      {unexpectedBreaks.length > 0 && (
-        <div className="mb-4 p-4 bg-red-100 rounded-lg border border-red-200">
-          <h5 className="font-medium text-red-800 flex items-center mb-2">
-            <span className="text-lg mr-2">⚠️</span>
-            불필요한 끊어읽기가 감지된 단어들
-          </h5>
-          <div className="flex flex-wrap gap-2">
-            {unexpectedBreaks.map((word, index) => (
-              <span 
-                key={index} 
-                className="px-3 py-1 bg-red-200 text-red-700 rounded font-medium"
-                style={{ fontFamily: 'Noto Sans CJK SC, Noto Sans CJK TC, Noto Sans CJK JP, SimSun, Microsoft YaHei, sans-serif' }}
-              >
-                {word.word}
-              </span>
-            ))}
-          </div>
-          <p className="text-sm text-red-700 mt-2">
-            💡 이 단어들에서 불필요하게 멈추셨어요. 더 자연스럽게 연결해서 발음해보세요.
-          </p>
-        </div>
-      )}
 
-      {missingBreaks.length > 0 && (
-        <div className="mb-4 p-4 bg-orange-100 rounded-lg border border-orange-200">
-          <h5 className="font-medium text-orange-800 flex items-center mb-2">
-            <span className="text-lg mr-2">📍</span>
-            끊어읽기가 필요한 단어들
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        
+                 {/* 1. STRESS PATTERN DISPLAY (강세 패턴) */}
+        <div className="bg-white p-4 rounded-lg shadow-sm border">
+          <h5 className="font-medium text-gray-700 mb-3 flex items-center">
+            <span className="text-lg mr-2">💪</span>
+            강세 패턴
           </h5>
-          <div className="flex flex-wrap gap-2">
-            {missingBreaks.map((word, index) => (
-              <span 
-                key={index} 
-                className="px-3 py-1 bg-orange-200 text-orange-700 rounded font-medium"
-                style={{ fontFamily: 'Noto Sans CJK SC, Noto Sans CJK TC, Noto Sans CJK JP, SimSun, Microsoft YaHei, sans-serif' }}
+          <div className="text-xs text-gray-500 mb-3 text-center">
+            🟢 좋음 (80점 이상) | 🟡 보통 (60-79점) | 🔴 개선 필요 (60점 미만)
+          </div>
+          <div className="flex flex-wrap gap-3 justify-center mb-4">
+            {stressData.map((item, index) => (
+              <div
+                key={index}
+                className="flex flex-col items-center group cursor-pointer"
+                title={`${item.word}: ${item.score.toFixed(1)}점`}
               >
-                {word.word}
-              </span>
+                <div
+                  className={`rounded-full transition-all duration-300 group-hover:scale-110 ${
+                    item.score >= 80 ? 'bg-green-500' :
+                    item.score >= 60 ? 'bg-yellow-500' : 'bg-red-500'
+                  }`}
+                  style={{
+                    width: `${Math.max(item.size * 2, 8)}px`,
+                    height: `${Math.max(item.size * 2, 8)}px`
+                  }}
+                ></div>
+                <span 
+                  className="text-xs mt-1 font-medium"
+                  style={{ fontFamily: 'Noto Sans CJK SC, Noto Sans CJK TC, Noto Sans CJK JP, SimSun, Microsoft YaHei, sans-serif' }}
+                >
+                  {item.word}
+                </span>
+              </div>
             ))}
           </div>
-          <p className="text-sm text-orange-700 mt-2">
-            💡 이 단어들 앞뒤로 적절한 쉼을 넣어주시면 더 자연스러워집니다.
-          </p>
+          
+          {/* 종합 운율 점수 통합 */}
+          <div className="border-t pt-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-gray-600">종합 운율:</span>
+                <span className={`text-lg font-bold ${getScoreColor(overallProsodyScore)}`}>
+                  {overallProsodyScore.toFixed(1)}점
+                </span>
+              </div>
+              <div className={`text-sm font-medium ${getScoreColor(overallProsodyScore)}`}>
+                {overallProsodyScore >= 80 ? '훌륭한 운율!' :
+                 overallProsodyScore >= 60 ? '좋은 기반' : '개선 필요'}
+              </div>
+            </div>
+          </div>
         </div>
-      )}
 
-      {monotoneIssues.length > 0 && (
-        <div className="mb-4 p-4 bg-yellow-100 rounded-lg border border-yellow-200">
-          <h5 className="font-medium text-yellow-800 flex items-center mb-2">
-            <span className="text-lg mr-2">📊</span>
-            억양 변화가 필요한 단어들
+                 {/* 2. RHYTHM PATTERN VISUALIZATION (리듬 패턴) */}
+        <div className="bg-white p-4 rounded-lg shadow-sm border">
+          <h5 className="font-medium text-gray-700 mb-3 flex items-center">
+            <span className="text-lg mr-2">⏱️</span>
+            리듬 패턴
           </h5>
-          <div className="flex flex-wrap gap-2">
-            {monotoneIssues.map((word, index) => (
-              <span 
-                key={index} 
-                className="px-3 py-1 bg-yellow-200 text-yellow-700 rounded font-medium"
-                style={{ fontFamily: 'Noto Sans CJK SC, Noto Sans CJK TC, Noto Sans CJK JP, SimSun, Microsoft YaHei, sans-serif' }}
-              >
-                {word.word}
-              </span>
+          <div className="text-xs text-gray-500 mb-3 text-center">
+            🟢 좋음 (80점 이상) | 🟡 보통 (60-79점) | 🔴 개선 필요 (60점 미만)
+          </div>
+          <div className="space-y-2 max-h-48 overflow-y-auto pr-2">
+            {rhythmData.map((item, index) => (
+              <div key={index} className="flex items-center gap-2">
+                <span 
+                  className="text-sm font-medium min-w-[3rem]"
+                  style={{ fontFamily: 'Noto Sans CJK SC, Noto Sans CJK TC, Noto Sans CJK JP, SimSun, Microsoft YaHei, sans-serif' }}
+                >
+                  {item.word}
+                </span>
+                <div className="flex-1 bg-gray-200 rounded-full h-2">
+                  <div
+                    className={`h-2 rounded-full transition-all duration-300 ${
+                      item.score >= 80 ? 'bg-green-500' :
+                      item.score >= 60 ? 'bg-yellow-500' : 'bg-red-500'
+                    }`}
+                    style={{ width: `${Math.min(item.duration, 100)}%` }}
+                  ></div>
+                </div>
+                <span className={`text-xs font-medium ${getScoreColor(item.score)}`}>
+                  {item.score.toFixed(0)}
+                </span>
+              </div>
             ))}
           </div>
-          <p className="text-sm text-yellow-700 mt-2">
-            💡 이 단어들에서 억양이 단조롭게 들렸어요. 성조 변화를 더 크게 해보세요.
-          </p>
         </div>
-      )}
+
+      </div>
 
       {/* 개선 팁 */}
       <div className="mt-6 p-4 bg-purple-100 rounded-lg border border-purple-200">

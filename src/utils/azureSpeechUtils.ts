@@ -80,26 +80,61 @@ export const evaluatePronunciationWithAzure = async (
     console.log('✅ Azure Speech Recognition 완료');
     console.log('인식 결과:', result.text);
     
-    // 임시로 기본 점수 반환 (Pronunciation Assessment 대신)
-    const assessmentResult = {
-      overallScore: 75, // 임시 점수
-      accuracyScore: 80,
-      fluencyScore: 70,
-      completenessScore: 85,
-      prosodyScore: 65,
-      confidenceScore: 0,
-      words: [],
-      syllables: [],
-      phonemes: []
-    };
+    // Pronunciation Assessment 실행
+    const pronunciationRecognizer = new SpeechSDK.SpeechRecognizer(speechConfig, audioConfig);
+    pronunciationAssessmentConfig.applyTo(pronunciationRecognizer);
     
-    console.log('✅ Azure Assessment 완료 (임시)');
+    const assessmentResult = await new Promise<any>((resolve, reject) => {
+      pronunciationRecognizer.recognizeOnceAsync(
+        (result) => {
+          const pronunciationAssessmentResult = SpeechSDK.PronunciationAssessmentResult.fromResult(result);
+          
+          const assessmentData = {
+            overallScore: pronunciationAssessmentResult.detailResult.PronunciationAssessment.PronScore,
+            accuracyScore: pronunciationAssessmentResult.detailResult.PronunciationAssessment.AccuracyScore,
+            fluencyScore: pronunciationAssessmentResult.detailResult.PronunciationAssessment.FluencyScore,
+            completenessScore: pronunciationAssessmentResult.detailResult.PronunciationAssessment.CompletenessScore,
+            prosodyScore: pronunciationAssessmentResult.detailResult.PronunciationAssessment.ProsodyScore || 0,
+            confidenceScore: 0, // Azure SDK에서 제공하지 않는 속성
+            words: pronunciationAssessmentResult.detailResult.Words || [],
+            syllables: [], // Azure SDK에서 제공하지 않는 속성
+            phonemes: [] // Azure SDK에서 제공하지 않는 속성
+          };
+          
+          resolve(assessmentData);
+        },
+        (error) => reject(error)
+      );
+    });
+    
+    console.log('✅ Azure Assessment 완료');
     return assessmentResult;
     
   } catch (error) {
     console.error('❌ Azure Pronunciation Assessment 실패:', error);
     throw new Error(`Azure 평가 실패: ${error}`);
   }
+};
+
+// Azure API 결과를 내부 타입으로 변환하는 함수
+export const convertAzureResultToInternalFormat = (azureResult: any) => {
+  return {
+    overallScore: azureResult.overallScore,
+    accuracyScore: azureResult.accuracyScore,
+    fluencyScore: azureResult.fluencyScore,
+    completenessScore: azureResult.completenessScore,
+    prosodyScore: azureResult.prosodyScore || 0,
+    confidenceScore: 0,
+    pauseCount: 0, // 기본값 설정
+    words: azureResult.words.map((word: any) => ({
+      word: word.Word, // 대문자 → 소문자
+      accuracyScore: word.PronunciationAssessment.AccuracyScore, // 중첩 구조에서 추출
+      errorType: word.PronunciationAssessment.ErrorType,
+      syllables: word.Syllables || []
+    })),
+    syllables: [],
+    phonemes: []
+  };
 };
 
 // 강점과 개선점 분석 (실제 점수 기반)

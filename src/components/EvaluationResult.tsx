@@ -86,7 +86,7 @@ const EvaluationResult: React.FC<EvaluationResultProps> = ({
       </div>
 
       {/* 종합 점수 표시 */}
-      <div className="bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 rounded-3xl p-8 text-white text-center">
+      <div className="bg-gradient-to-br from-sky-400 via-blue-400 to-cyan-400 rounded-3xl p-8 text-white text-center">
         <h3 className="text-2xl font-semibold mb-4">🎉 종합 점수</h3>
         <div className="text-6xl font-bold mb-4 animate-pulse">
           {overallScore}

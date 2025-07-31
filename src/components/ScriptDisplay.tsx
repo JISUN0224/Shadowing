@@ -74,6 +74,7 @@ const ScriptDisplay: React.FC<ScriptDisplayProps> = ({
     const result: CharacterWithPinyin[] = [];
     const punctuation = /[，。！？；：、\s]/;
     const chineseChar = /[\u4e00-\u9fff]/;
+    const englishChar = /[a-zA-Z]/;
     let wordIndex = 0;
 
     for (let i = 0; i < text.length; i++) {
@@ -95,6 +96,26 @@ const ScriptDisplay: React.FC<ScriptDisplayProps> = ({
           character: char,
           pinyin: pinyinInfo.pinyin,
           tone: pinyinInfo.tone,
+          isPunctuation: false,
+          wordIndex: wordIndex
+        });
+        wordIndex++;
+      } else if (englishChar.test(char)) {
+        // 영어 글자 처리
+        result.push({
+          character: char,
+          pinyin: char, // 영어는 그대로 표시
+          tone: 0,
+          isPunctuation: false,
+          wordIndex: wordIndex
+        });
+        wordIndex++;
+      } else {
+        // 기타 문자 처리 (숫자, 특수문자 등)
+        result.push({
+          character: char,
+          pinyin: char,
+          tone: 0,
           isPunctuation: false,
           wordIndex: wordIndex
         });

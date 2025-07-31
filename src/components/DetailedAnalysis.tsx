@@ -10,6 +10,20 @@ const DetailedAnalysis: React.FC<DetailedAnalysisProps> = ({
   words
 }) => {
 
+  // 🔍 임시 디버깅 로그 - 나중에 삭제할 것
+  console.log("=== DetailedAnalysis 받은 words 데이터 ===");
+  console.log("words 배열 길이:", words.length);
+  console.log("첫 번째 단어 전체 구조:", JSON.stringify(words[0], null, 2));
+  
+  if (words[0]?.Syllables) {
+    console.log("Syllables 구조:", JSON.stringify(words[0].Syllables, null, 2));
+  }
+  
+  if (words[0]?.PronunciationAssessment) {
+    console.log("PronunciationAssessment 구조:", JSON.stringify(words[0].PronunciationAssessment, null, 2));
+  }
+  // 🔍 디버깅 로그 끝
+
   // 음소를 실제 발음 기호로 변환하는 함수
   const getPhonemeDisplay = (phoneme: string): string => {
     const pinyinMap: { [key: string]: string } = {
@@ -40,7 +54,7 @@ const DetailedAnalysis: React.FC<DetailedAnalysisProps> = ({
           <span className="text-xl mr-2">📝</span>
           문장 피드백
         </h4>
-        <div className="space-y-3">
+        <div className="space-y-3 max-h-96 overflow-y-auto pr-2">
         {words.map((word, index) => {
           const errorAnalysis = analyzePhonemeErrors(word);
           return (
@@ -72,8 +86,8 @@ const DetailedAnalysis: React.FC<DetailedAnalysisProps> = ({
                 </div>
                 
                 <div className="flex items-center gap-3">
-                  <span className={`px-3 py-1 rounded-full text-sm font-medium border-2 ${getScoreColor(word.accuracyScore)}`}>
-                    {word.accuracyScore.toFixed(1)}점
+                  <span className={`px-3 py-1 rounded-full text-sm font-medium border-2 ${getScoreColor(word.accuracyScore || 0)}`}>
+                    {(word.accuracyScore || 0).toFixed(1)}점
                   </span>
                   </div>
                 </div>
@@ -96,21 +110,24 @@ const DetailedAnalysis: React.FC<DetailedAnalysisProps> = ({
                         <span className="text-base mr-2">📝</span>
             음절 분석
                       </h5>
+                      <div className="text-xs text-gray-500 mb-3 text-center">
+                        🟢 좋음 (80점 이상) | 🟡 보통 (60-79점) | 🔴 개선 필요 (60점 미만)
+                      </div>
                       <div className="flex flex-wrap gap-2">
             {words.flatMap((word, wordIndex) => 
               word.syllables?.map((syllable, sIndex) => (
                           <div
                   key={`word-${wordIndex}-syllable-${sIndex}`}
-                            className={`px-3 py-2 rounded-lg text-sm border-2 transition-all duration-200 hover:scale-105 ${getScoreColor(syllable.accuracyScore)}`}
-                  title={`${syllable.syllable} (${getPhonemeDisplay(syllable.syllable)}): ${syllable.accuracyScore.toFixed(1)}점`}
+                            className={`px-3 py-2 rounded-lg text-sm border-2 transition-all duration-200 hover:scale-105 ${getScoreColor(syllable.PronunciationAssessment?.AccuracyScore || 0)}`}
+                  title={`${syllable.Syllable || word.word} (${getPhonemeDisplay(syllable.Syllable || word.word)}): ${(syllable.PronunciationAssessment?.AccuracyScore || 0).toFixed(1)}점`}
                 >
                   <div 
                     className="font-bold"
                     style={{ fontFamily: 'Noto Sans CJK SC, Noto Sans CJK TC, Noto Sans CJK JP, SimSun, Microsoft YaHei, sans-serif' }}
                           >
-                    {syllable.syllable}
+                    {syllable.Syllable || word.word}
                       </div>
-                  <div className="text-xs">{syllable.accuracyScore.toFixed(1)}</div>
+                  <div className="text-xs">{(syllable.PronunciationAssessment?.AccuracyScore || 0).toFixed(1)}</div>
                 </div>
               )) || []
             )}

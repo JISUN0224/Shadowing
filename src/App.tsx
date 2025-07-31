@@ -3,7 +3,7 @@ import TextInputStep from './components/TextInputStep';
 import ShadowingPracticeStep from './components/ShadowingPracticeStep';
 import EvaluationResult from './components/EvaluationResult';
 import { EvaluationResult as EvaluationResultType } from './types';
-import { evaluatePronunciationWithAzure, analyzeStrengthsAndWeaknesses, generateScoreAdvice } from './utils/azureSpeechUtils';
+import { evaluatePronunciationWithAzure, analyzeStrengthsAndWeaknesses, generateScoreAdvice, convertAzureResultToInternalFormat } from './utils/azureSpeechUtils';
 
 type Step = 'text-input' | 'shadowing' | 'evaluation';
 
@@ -78,27 +78,29 @@ function App() {
       }
       
       // Azure 결과를 내부 타입으로 변환
+      const convertedResult = convertAzureResultToInternalFormat(azureResult);
+      
       const { strongPoints, improvementAreas } = analyzeStrengthsAndWeaknesses(
-        azureResult.accuracyScore,
-        azureResult.fluencyScore,
-        azureResult.completenessScore,
-        azureResult.prosodyScore
+        convertedResult.accuracyScore,
+        convertedResult.fluencyScore,
+        convertedResult.completenessScore,
+        convertedResult.prosodyScore
       );
       
-      const scoreAdvice = generateScoreAdvice(azureResult.overallScore);
-      const problematicWords = azureResult.words
+      const scoreAdvice = generateScoreAdvice(convertedResult.overallScore);
+      const problematicWords = convertedResult.words
         .filter(word => word.accuracyScore < 70)
         .map(word => word.word);
       
       const evaluationResult: EvaluationResultType = {
-        accuracyScore: azureResult.accuracyScore,
-        fluencyScore: azureResult.fluencyScore,
-        completenessScore: azureResult.completenessScore,
-        prosodyScore: azureResult.prosodyScore,
-        overallScore: azureResult.overallScore,
-        words: azureResult.words,
-        pauseCount: azureResult.pauseCount,
-        confidenceScore: azureResult.confidenceScore,
+        accuracyScore: convertedResult.accuracyScore,
+        fluencyScore: convertedResult.fluencyScore,
+        completenessScore: convertedResult.completenessScore,
+        prosodyScore: convertedResult.prosodyScore,
+        overallScore: convertedResult.overallScore,
+        words: convertedResult.words,
+        pauseCount: convertedResult.pauseCount,
+        confidenceScore: convertedResult.confidenceScore,
         strongPoints,
         improvementAreas,
         problematicWords,
@@ -136,7 +138,7 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 p-5">
+          <div className="min-h-screen bg-gradient-to-br from-sky-200 via-blue-200 to-cyan-200 p-5">
       <div className="max-w-5xl mx-auto bg-white rounded-3xl shadow-2xl overflow-hidden">
         {/* 헤더 */}
         <div className="bg-gradient-to-r from-red-400 via-pink-400 to-cyan-400 text-white p-8 text-center">
@@ -197,7 +199,7 @@ function App() {
                   <h2 className="text-3xl font-bold text-gray-800">발음 평가 결과</h2>
                   
                   {/* 로딩 상태 */}
-                  <div className="bg-gradient-to-br from-purple-50 to-indigo-50 rounded-2xl p-8">
+                  <div className="bg-gradient-to-br from-sky-50 to-blue-50 rounded-2xl p-8">
                     <div className="flex justify-center mb-4">
                       <div className="w-16 h-16 border-4 border-purple-300 border-t-purple-600 rounded-full animate-spin"></div>
                     </div>
