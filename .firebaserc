@@ -1,0 +1,17 @@
+{
+  "projects": {
+    "default": "myprojectweb-doctor"
+  },
+  "targets": {
+    "myprojectweb-doctor": {
+      "hosting": {
+        "shadowing": [
+          "myprojectweb-shadowing"
+        ]
+      }
+    }
+  }
+}
+
+
+

@@ -1,9 +1,13 @@
-import React, { useState } from 'react';
+import { useState, useEffect } from 'react';
 import TextInputStep from './components/TextInputStep';
 import ShadowingPracticeStep from './components/ShadowingPracticeStep';
 import EvaluationResult from './components/EvaluationResult';
+import LoginModal from './components/LoginModal';
+import FavoritesModal from './components/FavoritesModal';
 import { EvaluationResult as EvaluationResultType } from './types';
 import { evaluatePronunciationWithAzure, analyzeStrengthsAndWeaknesses, generateScoreAdvice, convertAzureResultToInternalFormat } from './utils/azureSpeechUtils';
+import { useAuth } from './hooks/useAuth';
+import { useFavorites } from './hooks/useFavorites';
 
 type Step = 'text-input' | 'shadowing' | 'evaluation';
 
@@ -16,6 +20,9 @@ interface AppState {
 }
 
 function App() {
+  const { user, logout } = useAuth();
+  const { addFavorite, isFavorite } = useFavorites();
+  
   const [appState, setAppState] = useState<AppState>({
     currentStep: 'text-input',
     selectedText: '',
@@ -23,6 +30,11 @@ function App() {
     evaluationResult: null,
     isEvaluating: false
   });
+
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const [showFavoritesModal, setShowFavoritesModal] = useState(false);
+
+
 
   const handleTextConfirm = (text: string) => {
     setAppState(prev => ({
@@ -88,9 +100,17 @@ function App() {
       );
       
       const scoreAdvice = generateScoreAdvice(convertedResult.overallScore);
-      const problematicWords = convertedResult.words
-        .filter(word => word.accuracyScore < 70)
-        .map(word => word.word);
+             const problematicWords = convertedResult.words
+         .filter((word: any) => word.accuracyScore < 70)
+         .map((word: any) => word.word);
+      
+      // 자신감 점수 계산 (망설임 횟수 기반)
+      console.log('🔍 자신감 점수 계산 디버깅:', {
+        pauseCount: convertedResult.pauseCount,
+        pauseCountType: typeof convertedResult.pauseCount
+      });
+      const confidenceScore = Math.max(0, 100 - convertedResult.pauseCount * 10);
+      console.log('계산된 자신감 점수:', confidenceScore);
       
       const evaluationResult: EvaluationResultType = {
         accuracyScore: convertedResult.accuracyScore,
@@ -100,7 +120,7 @@ function App() {
         overallScore: convertedResult.overallScore,
         words: convertedResult.words,
         pauseCount: convertedResult.pauseCount,
-        confidenceScore: convertedResult.confidenceScore,
+        confidenceScore: confidenceScore,
         strongPoints,
         improvementAreas,
         problematicWords,
@@ -137,11 +157,81 @@ function App() {
     });
   };
 
+  const handleFavoriteScript = async () => {
+    if (!user) {
+      setShowLoginModal(true);
+      return;
+    }
+
+    console.log('즐겨찾기 버튼 클릭:', { 
+      textLength: appState.selectedText.length, 
+      textPreview: appState.selectedText.substring(0, 50) + '...',
+      userId: user.uid 
+    });
+
+    const title = prompt('즐겨찾기 제목을 입력하세요 (선택사항):') || '제목 없음';
+    const result = await addFavorite(appState.selectedText, title);
+    
+    console.log('즐겨찾기 추가 결과:', result);
+    
+    if (result.success) {
+      alert('즐겨찾기에 추가되었습니다!');
+    } else {
+      alert('즐겨찾기 추가에 실패했습니다: ' + result.error);
+    }
+  };
+
+  const handleSelectFromFavorites = (text: string) => {
+    setAppState(prev => ({
+      ...prev,
+      currentStep: 'shadowing',
+      selectedText: text
+    }));
+  };
+
   return (
           <div className="min-h-screen bg-gradient-to-br from-sky-200 via-blue-200 to-cyan-200 p-5">
       <div className="max-w-5xl mx-auto bg-white rounded-3xl shadow-2xl overflow-hidden">
-        {/* 헤더 */}
-        <div className="bg-gradient-to-r from-red-400 via-pink-400 to-cyan-400 text-white p-8 text-center">
+                 {/* 헤더 */}
+         <div className="bg-gradient-to-r from-red-400 via-pink-400 to-cyan-400 text-white p-8 text-center relative">
+           {/* 왼쪽 상단 - 홈 버튼 */}
+           <div className="absolute top-4 left-4">
+             <button
+               onClick={resetToTextInput}
+               className="px-4 py-2 bg-white bg-opacity-20 rounded-lg hover:bg-opacity-30 transition-all duration-300 text-sm flex items-center space-x-2"
+             >
+               <span>🏠</span>
+               <span>홈으로</span>
+             </button>
+           </div>
+           
+           {/* 오른쪽 상단 - 로그인/즐겨찾기/로그아웃 버튼 */}
+           <div className="absolute top-4 right-4 flex items-center space-x-3">
+             {user ? (
+               <>
+                 <button
+                   onClick={() => setShowFavoritesModal(true)}
+                   className="px-4 py-2 bg-white bg-opacity-20 rounded-lg hover:bg-opacity-30 transition-all duration-300 text-sm"
+                 >
+                   ⭐ 즐겨찾기
+                 </button>
+                 <button
+                   onClick={logout}
+                   className="px-4 py-2 bg-white bg-opacity-20 rounded-lg hover:bg-opacity-30 transition-all duration-300 text-sm"
+                 >
+                   로그아웃
+                 </button>
+               </>
+             ) : (
+               <button
+                 onClick={() => setShowLoginModal(true)}
+                 className="px-4 py-2 bg-white bg-opacity-20 rounded-lg hover:bg-opacity-30 transition-all duration-300 text-sm"
+               >
+                 로그인
+               </button>
+             )}
+           </div>
+          
           <h1 className="text-4xl font-light mb-3">
             🇨🇳 쉐도잉 연습
           </h1>
@@ -189,6 +279,8 @@ function App() {
               text={appState.selectedText}
               onGoBack={handleGoBack}
               onEvaluate={handleEvaluate}
+              onFavorite={handleFavoriteScript}
+              isFavorite={isFavorite(appState.selectedText)}
             />
           )}
           
@@ -253,6 +345,18 @@ function App() {
           )}
         </div>
       </div>
+
+      {/* 모달들 */}
+      <LoginModal 
+        isOpen={showLoginModal} 
+        onClose={() => setShowLoginModal(false)} 
+      />
+      
+      <FavoritesModal
+        isOpen={showFavoritesModal}
+        onClose={() => setShowFavoritesModal(false)}
+        onSelectScript={handleSelectFromFavorites}
+      />
     </div>
   );
 }

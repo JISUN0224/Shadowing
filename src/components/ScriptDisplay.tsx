@@ -28,6 +28,7 @@ const ScriptDisplay: React.FC<ScriptDisplayProps> = ({
 }) => {
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const [audioProgress, setAudioProgress] = useState(0);
+  const [showPinyin, setShowPinyin] = useState(true); // 병음 표시 토글 상태
   const progressIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // 병음 색상 통일 (진한 파란색)
@@ -179,6 +180,23 @@ const ScriptDisplay: React.FC<ScriptDisplayProps> = ({
           <span className="text-2xl mr-2">📖</span>
           연습 스크립트
         </h3>
+        
+        {/* 병음 토글 버튼 */}
+        <div className="mt-4">
+          <button
+            onClick={() => setShowPinyin(!showPinyin)}
+            className={`inline-flex items-center px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
+              showPinyin
+                ? 'bg-pink-100 text-pink-700 hover:bg-pink-200'
+                : 'bg-pink-200 text-pink-800 hover:bg-pink-300'
+            }`}
+          >
+            <span className="mr-2">
+              {showPinyin ? '👁️‍🗨️' : '🔤'}
+            </span>
+            {showPinyin ? '병음 및 성조 숨기기' : '병음 및 성조 표시'}
+          </button>
+        </div>
       </div>
       
       <div className="relative">
@@ -229,14 +247,16 @@ const ScriptDisplay: React.FC<ScriptDisplayProps> = ({
                   </span>
                   
                   {/* 병음 */}
-                  <span 
-                    className={`text-sm font-medium ${getPinyinColor()} ${
-                      isHighlighted ? 'font-bold' : ''
-                    }`}
-                    style={{ fontFamily: 'Noto Sans CJK SC, Noto Sans CJK TC, Noto Sans CJK JP, SimSun, Microsoft YaHei, sans-serif' }}
-                  >
-                    {item.pinyin}
-                  </span>
+                  {showPinyin && (
+                    <span 
+                      className={`text-sm font-medium ${getPinyinColor()} ${
+                        isHighlighted ? 'font-bold' : ''
+                      }`}
+                      style={{ fontFamily: 'Noto Sans CJK SC, Noto Sans CJK TC, Noto Sans CJK JP, SimSun, Microsoft YaHei, sans-serif' }}
+                    >
+                      {item.pinyin}
+                    </span>
+                  )}
                 </span>
               );
             })}

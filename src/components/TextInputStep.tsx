@@ -37,37 +37,122 @@ const TextInputStep: React.FC<TextInputStepProps> = ({ onTextConfirm }) => {
         throw new Error('Gemini API 키가 설정되지 않았습니다. .env 파일을 확인해주세요.');
       }
 
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
+      // 모델 설정 (Memory 프로젝트와 동일한 방식)
+      const modelConfigs = [
+        {
+          name: 'gemini-2.5-flash',
+          endpoint: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent',
+          config: {
+            temperature: 0.3,
+            topK: 40,
+            topP: 0.95,
+            maxOutputTokens: 2048
+          }
         },
-        body: JSON.stringify({
-          contents: [{
-            parts: [{
-              text: `중국어 학습용 텍스트를 생성해주세요. 주제: ${aiPrompt}. 
-                     요구사항: 
-                     - 중국어로만 작성
-                     - 학습용으로 적합한 난이도
-                     - 3-5문장 정도
-                     - 병음이나 번역 없이 순수 중국어만`
-            }]
-          }]
-        })
-      });
+        {
+          name: 'gemini-2.0-flash',
+          endpoint: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent',
+          config: {
+            temperature: 0.3,
+            topK: 40,
+            topP: 0.95,
+            maxOutputTokens: 2048
+          }
+        },
+        {
+          name: 'gemini-2.0-flash-lite',
+          endpoint: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent',
+          config: {
+            temperature: 0.3,
+            topK: 40,
+            topP: 0.95,
+            maxOutputTokens: 2048
+          }
+        },
+        {
+          name: 'gemini-1.5-flash-8b',
+          endpoint: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-8b:generateContent',
+          config: {
+            temperature: 0.3,
+            topK: 40,
+            topP: 0.95,
+            maxOutputTokens: 2048
+          }
+        }
+      ];
 
-      if (!response.ok) {
-        throw new Error(`API 요청 실패: ${response.status}`);
-      }
-
-      const data = await response.json();
+      let lastError = null;
       
-      if (data.candidates && data.candidates[0] && data.candidates[0].content) {
-        const generatedText = data.candidates[0].content.parts[0].text;
-        setGeneratedText(generatedText);
-      } else {
-        throw new Error('AI 응답 형식이 올바르지 않습니다.');
+      for (const modelConfig of modelConfigs) {
+        try {
+          const response = await fetch(`${modelConfig.endpoint}?key=${apiKey}`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              contents: [{
+                parts: [{
+                  text: `중국어 학습용 텍스트를 생성해주세요. 주제: ${aiPrompt}. 
+                         요구사항: 
+                         - 중국어로만 작성
+                         - 학습용으로 적합한 난이도
+                         - 3-5문장 정도
+                         - 병음이나 번역 없이 순수 중국어만`
+                }]
+              }],
+              generationConfig: modelConfig.config
+            })
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json();
+            const errorMessage = errorData.error?.message || response.statusText;
+            
+            // API limit 관련 에러인지 확인
+            const isLimitError = errorMessage.includes('quota') || 
+                                errorMessage.includes('limit') || 
+                                errorMessage.includes('rate') ||
+                                response.status === 429 ||
+                                response.status === 403;
+            
+            if (isLimitError) {
+              console.log(`⚠️ ${modelConfig.name} 모델 API limit 도달: ${errorMessage}`);
+              throw new Error(`LIMIT_ERROR: ${errorMessage}`);
+            } else {
+              console.log(`❌ ${modelConfig.name} 모델 에러: ${errorMessage}`);
+              throw new Error(`API_ERROR: ${errorMessage}`);
+            }
+          }
+
+          const data = await response.json();
+          
+          if (data.candidates && data.candidates[0] && data.candidates[0].content) {
+            const generatedText = data.candidates[0].content.parts[0].text;
+            setGeneratedText(generatedText);
+            return; // 성공하면 함수 종료
+          } else {
+            throw new Error('AI 응답 형식이 올바르지 않습니다.');
+          }
+        } catch (error) {
+          console.error(`${modelConfig.name} 모델 오류:`, error);
+          
+          // API limit 에러가 아니면 다음 모델 시도하지 않음
+          if (!error.message.startsWith('LIMIT_ERROR:')) {
+            console.log(`❌ ${modelConfig.name} 모델에서 치명적 에러 발생, 다음 모델 시도 중단`);
+            lastError = error;
+            break;
+          }
+          
+          console.log(`🔄 ${modelConfig.name} 모델 실패, 다음 모델 시도...`);
+          lastError = error;
+          continue; // 다음 모델 시도
+        }
       }
+      
+      // 모든 모델이 실패한 경우
+      throw lastError || new Error('모든 모델에서 생성 실패');
+      
     } catch (error) {
       console.error('AI 생성 오류:', error);
       

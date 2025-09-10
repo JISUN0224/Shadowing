@@ -22,16 +22,15 @@ const ScoreSection: React.FC<ScoreSectionProps> = ({
     { label: '정확도', value: accuracyScore, icon: '🎯', description: '발음의 정확성' },
     { label: '유창성', value: fluencyScore, icon: '⚡', description: '말하기 속도와 리듬' },
     { label: '완전성', value: completenessScore, icon: '✅', description: '문장 완성도' },
-    { label: '억양', value: prosodyScore, icon: '🎵', description: '성조와 억양' },
     { label: '자신감', value: confidenceScore, icon: '💪', description: '망설임 없는 발음', special: true }
   ];
 
-  // 오각형 레이더 차트를 위한 SVG 생성
+  // 사각형 레이더 차트를 위한 SVG 생성 (4개 축)
   const createRadarChart = () => {
-    const centerX = 150;
+    const centerX = 200;
     const centerY = 150;
     const radius = 120;
-    const angles = [0, 72, 144, 216, 288]; // 360도 / 5개 축 = 72도씩
+    const angles = [0, 90, 180, 270]; // 360도 / 4개 축 = 90도씩
     
     // 점수들을 0-100 범위로 정규화 (NaN 방지)
     const normalizedScores = scoreItems.map(item => {
@@ -100,7 +99,7 @@ const ScoreSection: React.FC<ScoreSectionProps> = ({
           >
             <div className="text-3xl mb-2">{item.icon}</div>
             <div className="text-2xl font-bold mb-1">
-              {item.special ? pauseCount : (isNaN(item.value) ? 0 : item.value).toFixed(1)}
+              {(isNaN(item.value) ? 0 : item.value).toFixed(1)}
             </div>
             <div className="text-sm font-medium mb-1">{item.label}</div>
             <div className="text-xs opacity-75">{item.description}</div>
@@ -108,15 +107,15 @@ const ScoreSection: React.FC<ScoreSectionProps> = ({
         ))}
       </div>
 
-      {/* 오각형 레이더 차트 */}
-      <div className="bg-white rounded-xl p-6 border border-gray-200">
-        <h4 className="text-lg font-semibold text-gray-800 mb-4 text-center">
-          📈 시각적 분석
-        </h4>
-        
-        <div className="flex justify-center">
-          <div className="relative">
-            <svg width="300" height="300" viewBox="0 0 300 300" className="mx-auto">
+             {/* 사각형 레이더 차트 */}
+       <div className="bg-white rounded-xl p-6 border border-gray-200">
+         <h4 className="text-lg font-semibold text-gray-800 mb-4 text-center">
+           📈 시각적 분석
+         </h4>
+         
+         <div className="flex justify-center">
+           <div className="relative">
+             <svg width="400" height="300" viewBox="0 0 400 300" className="mx-auto">
               {/* 등급선들 (배경) */}
               {gradeLines.map((line, index) => (
                 <path
@@ -163,12 +162,12 @@ const ScoreSection: React.FC<ScoreSectionProps> = ({
                 />
               ))}
               
-              {/* 축 라벨들 */}
-              {scoreItems.map((item, index) => {
-                const angle = (index * 72 - 90) * Math.PI / 180;
-                const labelRadius = 140;
-                const x = 150 + labelRadius * Math.cos(angle);
-                const y = 150 + labelRadius * Math.sin(angle);
+                             {/* 축 라벨들 */}
+               {scoreItems.map((item, index) => {
+                 const angle = (index * 90 - 90) * Math.PI / 180;
+                 const labelRadius = 140;
+                 const x = 200 + labelRadius * Math.cos(angle);
+                 const y = 150 + labelRadius * Math.sin(angle);
                 
                 return (
                   <text
@@ -185,10 +184,10 @@ const ScoreSection: React.FC<ScoreSectionProps> = ({
               })}
             </svg>
             
-            {/* 중앙 점수 표시 */}
-            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-center">
+                         {/* 중앙 점수 표시 */}
+             <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-center" style={{ left: '200px' }}>
               <div className="text-2xl font-bold text-blue-600">
-                {((accuracyScore + fluencyScore + completenessScore + prosodyScore + confidenceScore) / 5).toFixed(1)}
+                {((accuracyScore + fluencyScore + completenessScore + confidenceScore) / 4).toFixed(1)}
               </div>
               <div className="text-xs text-gray-500">평균</div>
             </div>

@@ -4,10 +4,18 @@ export interface Phoneme {
   accuracyScore: number;
 }
 
-// 음절 분석 결과
+// 음절 분석 결과 (Azure API 데이터 포함)
 export interface Syllable {
-  syllable: string;
-  accuracyScore: number;
+  syllable?: string;
+  accuracyScore?: number;
+  // Azure API에서 제공하는 실제 필드들
+  Syllable?: string;
+  Grapheme?: string;
+  PronunciationAssessment?: {
+    AccuracyScore: number;
+  };
+  Offset?: number;
+  Duration?: number;
 }
 
 // Azure API Prosody 데이터 타입들

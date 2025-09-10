@@ -9,6 +9,8 @@ interface AudioControlsProps {
   onStop: () => void;
   onToggleRecording: () => void;
   onEvaluate: () => void;
+  onToggleVoiceSelect: () => void;
+  showVoiceSelect: boolean;
 }
 
 const AudioControls: React.FC<AudioControlsProps> = ({
@@ -19,7 +21,9 @@ const AudioControls: React.FC<AudioControlsProps> = ({
   onPlay,
   onStop,
   onToggleRecording,
-  onEvaluate
+  onEvaluate,
+  onToggleVoiceSelect,
+  showVoiceSelect
 }) => {
   return (
     <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl p-8 shadow-lg border border-gray-200">
@@ -60,6 +64,19 @@ const AudioControls: React.FC<AudioControlsProps> = ({
               <span>음성 재생</span>
             </>
           )}
+        </button>
+
+        {/* 음성 선택 토글 버튼 */}
+        <button
+          onClick={onToggleVoiceSelect}
+          className={`flex items-center space-x-3 px-8 py-4 rounded-full font-medium text-lg transition-all duration-300 transform hover:scale-105 shadow-lg ${
+            showVoiceSelect
+              ? 'bg-gradient-to-r from-purple-400 to-pink-500 text-white hover:from-purple-500 hover:to-pink-600 shadow-purple-200'
+              : 'bg-gradient-to-r from-gray-400 to-gray-500 text-white hover:from-gray-500 hover:to-gray-600 shadow-gray-200'
+          }`}
+        >
+          <span className="text-2xl">🎭</span>
+          <span>{showVoiceSelect ? '음성 선택 닫기' : '음성 선택'}</span>
         </button>
 
         {/* 녹음 버튼 */}

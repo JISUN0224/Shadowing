@@ -1,6 +1,6 @@
 import React from 'react';
 import { EvaluationResultProps } from '../types';
-import { getScoreColor, getScoreBackgroundColor } from '../utils/evaluationUtils';
+
 import ScoreSection from './ScoreSection';
 import DetailedAnalysis from './DetailedAnalysis';
 import FeedbackSection from './FeedbackSection';
@@ -121,11 +121,9 @@ const EvaluationResult: React.FC<EvaluationResultProps> = ({
       />
 
       {/* 상세 분석 섹션 - TTS 하이라이트 기능 포함 */}
-      <DetailedAnalysis 
-        words={words} 
-        enableTTSHighlight={true}
-        newsData={newsData}
-      />
+              <DetailedAnalysis 
+          words={words} 
+        />
 
       {/* 운율 분석 섹션 */}
       <ProsodyAnalysisSection words={words} />

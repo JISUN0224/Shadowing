@@ -54,6 +54,13 @@ export const evaluatePronunciationWithAzure = async (
       true
     );
     
+    // 운율 평가 활성화 (제거됨 - 중국어에서 지원하지 않음)
+    // try {
+    //   pronunciationAssessmentConfig.enableProsodyAssessment = true;
+    // } catch (error) {
+    //   console.log('운율 평가 활성화 실패, 기본 설정으로 진행:', error);
+    // }
+    
     // Speech Recognizer 생성 - WAV Blob을 File로 변환
     const audioFile = new File([wavBlob], 'recording.wav', { type: 'audio/wav' });
     const audioConfig = SpeechSDK.AudioConfig.fromWavFileInput(audioFile);
@@ -89,17 +96,67 @@ export const evaluatePronunciationWithAzure = async (
         (result) => {
           const pronunciationAssessmentResult = SpeechSDK.PronunciationAssessmentResult.fromResult(result);
           
+          // 🔍 Azure API 응답 구조 디버깅 로그
+          console.log('=== Azure Pronunciation Assessment 전체 응답 구조 ===');
+          console.log('전체 결과:', pronunciationAssessmentResult);
+          console.log('Detail Result:', pronunciationAssessmentResult.detailResult);
+          console.log('Pronunciation Assessment:', pronunciationAssessmentResult.detailResult.PronunciationAssessment);
+          console.log('ProsodyScore 값:', pronunciationAssessmentResult.detailResult.PronunciationAssessment.ProsodyScore);
+          console.log('ProsodyScore 타입:', typeof pronunciationAssessmentResult.detailResult.PronunciationAssessment.ProsodyScore);
+          console.log('Words 배열:', pronunciationAssessmentResult.detailResult.Words);
+          
+          // 단어별 상세 정보 로깅
+          if (pronunciationAssessmentResult.detailResult.Words) {
+            console.log('=== 단어별 상세 정보 ===');
+            pronunciationAssessmentResult.detailResult.Words.forEach((word: any, index: number) => {
+              console.log(`단어 ${index + 1}:`, {
+                word: word.Word,
+                pronunciationAssessment: word.PronunciationAssessment,
+                duration: word.Duration,
+                offset: word.Offset,
+                syllables: word.Syllables,
+                phonemes: word.Phonemes
+              });
+            });
+          }
+          
+          // 휴지 횟수 계산
+          const calculatePauseCount = (words: any[]) => {
+            let pauseCount = 0;
+            for (let i = 0; i < words.length - 1; i++) {
+              const currentWord = words[i];
+              const nextWord = words[i + 1];
+              
+              if (currentWord.Duration && nextWord.Offset) {
+                const currentEndTime = currentWord.Offset + currentWord.Duration;
+                const nextStartTime = nextWord.Offset;
+                const pauseDuration = (nextStartTime - currentEndTime) / 1000000; // 나노초 → 밀리초
+                
+                if (pauseDuration > 300) { // 300ms 이상의 휴지를 카운트
+                  pauseCount++;
+                }
+              }
+            }
+            return pauseCount;
+          };
+          
+          const pauseCount = calculatePauseCount(pronunciationAssessmentResult.detailResult.Words);
+          
           const assessmentData = {
             overallScore: pronunciationAssessmentResult.detailResult.PronunciationAssessment.PronScore,
             accuracyScore: pronunciationAssessmentResult.detailResult.PronunciationAssessment.AccuracyScore,
             fluencyScore: pronunciationAssessmentResult.detailResult.PronunciationAssessment.FluencyScore,
             completenessScore: pronunciationAssessmentResult.detailResult.PronunciationAssessment.CompletenessScore,
-            prosodyScore: pronunciationAssessmentResult.detailResult.PronunciationAssessment.ProsodyScore || 0,
+            prosodyScore: 0, // 운율 평가 제거
             confidenceScore: 0, // Azure SDK에서 제공하지 않는 속성
+            pauseCount: pauseCount, // 실제 계산된 휴지 횟수
             words: pronunciationAssessmentResult.detailResult.Words || [],
             syllables: [], // Azure SDK에서 제공하지 않는 속성
             phonemes: [] // Azure SDK에서 제공하지 않는 속성
           };
+          
+          console.log('=== 최종 Assessment Data ===');
+          console.log(assessmentData);
           
           resolve(assessmentData);
         },
@@ -123,9 +180,9 @@ export const convertAzureResultToInternalFormat = (azureResult: any) => {
     accuracyScore: azureResult.accuracyScore,
     fluencyScore: azureResult.fluencyScore,
     completenessScore: azureResult.completenessScore,
-    prosodyScore: azureResult.prosodyScore || 0,
-    confidenceScore: 0,
-    pauseCount: 0, // 기본값 설정
+    prosodyScore: 0, // 운율 평가 제거
+    confidenceScore: 0, // App.tsx에서 계산됨
+    pauseCount: azureResult.pauseCount || 0, // 실제 계산된 휴지 횟수 사용
     words: azureResult.words.map((word: any) => ({
       word: word.Word, // 대문자 → 소문자
       accuracyScore: word.PronunciationAssessment.AccuracyScore, // 중첩 구조에서 추출
