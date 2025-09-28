@@ -11,6 +11,8 @@ interface AudioControlsProps {
   onEvaluate: () => void;
   onToggleVoiceSelect: () => void;
   showVoiceSelect: boolean;
+  playbackSpeed: number;
+  onSpeedChange: (speed: number) => void;
 }
 
 const AudioControls: React.FC<AudioControlsProps> = ({
@@ -23,7 +25,9 @@ const AudioControls: React.FC<AudioControlsProps> = ({
   onToggleRecording,
   onEvaluate,
   onToggleVoiceSelect,
-  showVoiceSelect
+  showVoiceSelect,
+  playbackSpeed,
+  onSpeedChange
 }) => {
   return (
     <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl p-8 shadow-lg border border-gray-200">
@@ -32,6 +36,39 @@ const AudioControls: React.FC<AudioControlsProps> = ({
           <span className="text-2xl mr-3">🎛️</span>
           오디오 컨트롤
         </h3>
+      </div>
+
+      {/* 재생 속도 조정 */}
+      <div className="mb-6">
+        <div className="text-center mb-4">
+          <h4 className="text-lg font-semibold text-gray-700 flex items-center justify-center">
+            <span className="text-xl mr-2">⚡</span>
+            재생 속도
+          </h4>
+        </div>
+        <div className="flex justify-center gap-3">
+          {[0.5, 1.0, 1.5].map((speed) => (
+            <button
+              key={speed}
+              onClick={() => onSpeedChange(speed)}
+              disabled={isLoadingAudio}
+              className={`px-6 py-3 rounded-full font-medium text-lg transition-all duration-300 transform hover:scale-105 shadow-lg ${
+                isLoadingAudio
+                  ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                  : playbackSpeed === speed
+                  ? 'bg-gradient-to-r from-orange-400 to-red-500 text-white shadow-orange-200'
+                  : 'bg-white text-gray-700 border-2 border-gray-300 hover:border-orange-400 hover:text-orange-600'
+              }`}
+            >
+              {speed}x
+            </button>
+          ))}
+        </div>
+        <div className="text-center mt-2">
+          <span className="text-sm text-gray-600">
+            현재 속도: <span className="font-semibold text-orange-600">{playbackSpeed}x</span>
+          </span>
+        </div>
       </div>
 
       {/* 메인 컨트롤 버튼들 */}
@@ -159,14 +196,18 @@ const AudioControls: React.FC<AudioControlsProps> = ({
         <div className="space-y-2 text-sm text-blue-700">
           <div className="flex items-start space-x-2">
             <span className="text-blue-500 font-bold">1.</span>
-            <span>먼저 <strong>"음성 재생"</strong> 버튼을 눌러 원어민 발음을 들어보세요</span>
+            <span>원하는 <strong>재생 속도</strong>를 선택하세요 (SSML로 자연스럽게 조정됨)</span>
           </div>
           <div className="flex items-start space-x-2">
             <span className="text-blue-500 font-bold">2.</span>
-            <span><strong>"쉐도잉 녹음"</strong> 버튼을 눌러 따라 말하며 녹음하세요</span>
+            <span><strong>"음성 재생"</strong> 버튼을 눌러 원어민 발음을 들어보세요</span>
           </div>
           <div className="flex items-start space-x-2">
             <span className="text-blue-500 font-bold">3.</span>
+            <span><strong>"쉐도잉 녹음"</strong> 버튼을 눌러 따라 말하며 녹음하세요</span>
+          </div>
+          <div className="flex items-start space-x-2">
+            <span className="text-blue-500 font-bold">4.</span>
             <span>녹음이 완료되면 <strong>"발음 평가하기"</strong>로 결과를 확인하세요</span>
           </div>
         </div>

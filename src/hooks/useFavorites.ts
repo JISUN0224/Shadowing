@@ -29,11 +29,11 @@ export const useFavorites = () => {
   // 즐겨찾기 목록 불러오기
   const loadFavorites = async () => {
     if (!user) {
-      console.log('사용자가 로그인하지 않음');
+      // 사용자가 로그인하지 않음
       return;
     }
 
-    console.log('즐겨찾기 목록 불러오기 시작:', user.uid);
+    // 즐겨찾기 목록 불러오기 시작
     setLoading(true);
     
     try {
@@ -46,7 +46,7 @@ export const useFavorites = () => {
       const querySnapshot = await getDocs(q);
       const favoritesList: FavoriteScript[] = [];
       
-      console.log('Firestore에서 가져온 문서 수:', querySnapshot.size);
+      // Firestore에서 가져온 문서 수
       
       querySnapshot.forEach((doc) => {
         const data = doc.data();
@@ -61,7 +61,7 @@ export const useFavorites = () => {
       // 클라이언트에서 정렬 (최신순)
       favoritesList.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
       
-      console.log('즐겨찾기 목록 설정:', favoritesList.length, '개 항목');
+      // 즐겨찾기 목록 설정
       setFavorites(favoritesList);
     } catch (error) {
       console.error('즐겨찾기 불러오기 실패:', error);
@@ -74,7 +74,7 @@ export const useFavorites = () => {
   const addFavorite = async (text: string, title?: string) => {
     if (!user) return { success: false, error: '로그인이 필요합니다.' };
 
-    console.log('즐겨찾기 추가 시작:', { text: text.substring(0, 50) + '...', title, userId: user.uid });
+    // 즐겨찾기 추가 시작
 
     try {
       const docRef = await addDoc(collection(db, 'favorites'), {
@@ -84,7 +84,7 @@ export const useFavorites = () => {
         createdAt: Timestamp.now()
       });
 
-      console.log('Firestore에 즐겨찾기 추가 성공:', docRef.id);
+      // Firestore에 즐겨찾기 추가 성공
 
       const newFavorite: FavoriteScript = {
         id: docRef.id,
@@ -96,7 +96,7 @@ export const useFavorites = () => {
       // 로컬 상태 업데이트
       setFavorites(prev => {
         const updated = [newFavorite, ...prev];
-        console.log('로컬 상태 업데이트:', updated.length, '개 항목');
+        // 로컬 상태 업데이트
         return updated;
       });
       
@@ -151,12 +151,7 @@ export const useFavorites = () => {
     const trimmedText = text.trim();
     const isFav = favorites.some(fav => fav.text.trim() === trimmedText);
     
-    console.log('즐겨찾기 확인:', {
-      currentText: trimmedText.substring(0, 30) + '...',
-      favoritesCount: favorites.length,
-      isFavorite: isFav,
-      existingFavorites: favorites.map(f => f.text.substring(0, 30) + '...')
-    });
+    // 즐겨찾기 확인
     
     return isFav;
   };

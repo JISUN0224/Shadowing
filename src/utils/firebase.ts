@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
+import { getAuth, GoogleAuthProvider } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 
 const firebaseConfig = {
@@ -13,21 +13,15 @@ const firebaseConfig = {
 
 // Firebase 설정 디버깅 (프로덕션에서는 비활성화)
 if (import.meta.env.DEV) {
-  console.log('Firebase 설정 확인:', {
-    apiKey: firebaseConfig.apiKey ? '✅ 설정됨' : '❌ 설정되지 않음',
-    authDomain: firebaseConfig.authDomain ? '✅ 설정됨' : '❌ 설정되지 않음',
-    projectId: firebaseConfig.projectId ? '✅ 설정됨' : '❌ 설정되지 않음',
-    storageBucket: firebaseConfig.storageBucket ? '✅ 설정됨' : '❌ 설정되지 않음',
-    messagingSenderId: firebaseConfig.messagingSenderId ? '✅ 설정됨' : '❌ 설정되지 않음',
-    appId: firebaseConfig.appId ? '✅ 설정됨' : '❌ 설정되지 않음'
-  });
+// Firebase 설정 확인
 }
 
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
+export const googleProvider = new GoogleAuthProvider();
 
 // Firebase 초기화 완료 로그 (프로덕션에서는 비활성화)
 if (import.meta.env.DEV) {
-  console.log('Firebase 초기화 완료');
+  // Firebase 초기화 완료
 }

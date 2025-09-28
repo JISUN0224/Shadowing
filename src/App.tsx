@@ -4,12 +4,14 @@ import ShadowingPracticeStep from './components/ShadowingPracticeStep';
 import EvaluationResult from './components/EvaluationResult';
 import LoginModal from './components/LoginModal';
 import FavoritesModal from './components/FavoritesModal';
+import ShadowingDashboard from './components/ShadowingDashboard';
 import { EvaluationResult as EvaluationResultType } from './types';
 import { evaluatePronunciationWithAzure, analyzeStrengthsAndWeaknesses, generateScoreAdvice, convertAzureResultToInternalFormat } from './utils/azureSpeechUtils';
 import { useAuth } from './hooks/useAuth';
 import { useFavorites } from './hooks/useFavorites';
+import { saveShadowingSession } from './utils/shadowingDataUtils';
 
-type Step = 'text-input' | 'shadowing' | 'evaluation';
+type Step = 'text-input' | 'shadowing' | 'evaluation' | 'dashboard';
 
 interface AppState {
   currentStep: Step;
@@ -52,8 +54,22 @@ function App() {
     }));
   };
 
+  const handleGoToDashboard = () => {
+    setAppState(prev => ({
+      ...prev,
+      currentStep: 'dashboard'
+    }));
+  };
+
+  const handleGoToPractice = () => {
+    setAppState(prev => ({
+      ...prev,
+      currentStep: 'text-input'
+    }));
+  };
+
   const handleEvaluate = async (audioBlob: Blob) => {
-    console.log('평가 시작:', { audioBlobSize: audioBlob.size, text: appState.selectedText });
+    // 평가 시작
     
     // 평가 시작 상태로 변경
     setAppState(prev => ({
@@ -63,54 +79,72 @@ function App() {
     }));
     
     try {
-      console.log('Azure API 호출 시작...');
+      // Azure API 호출 시작
       
-      // 임시: Azure API 키가 없을 경우를 대비한 샘플 데이터 사용
+      // 3단계 폴백 구조: Azure → 브라우저 음성 인식 → 샘플 데이터
       let azureResult;
       try {
-        // 실제 Azure Speech Services API 호출
+        // 1단계: Azure Speech Services API 호출
         azureResult = await evaluatePronunciationWithAzure(audioBlob, appState.selectedText);
-        console.log('Azure API 결과:', azureResult);
+        // Azure API 결과
       } catch (azureError) {
-        console.warn('Azure API 호출 실패, 샘플 데이터 사용:', azureError);
-        // 샘플 데이터로 대체
-        const { generateSampleEvaluation } = await import('./utils/sampleData');
-        const sampleResult = generateSampleEvaluation(appState.selectedText);
-        azureResult = {
-          overallScore: sampleResult.overallScore,
-          accuracyScore: sampleResult.accuracyScore,
-          fluencyScore: sampleResult.fluencyScore,
-          completenessScore: sampleResult.completenessScore,
-          prosodyScore: sampleResult.prosodyScore,
-          words: sampleResult.words,
-          pauseCount: sampleResult.pauseCount,
-          confidenceScore: sampleResult.confidenceScore
-        };
-        console.log('샘플 데이터로 대체됨:', azureResult);
+        // Azure API 호출 실패, 브라우저 음성 인식으로 폴백
+        
+        try {
+          // 2단계: 브라우저 내장 음성 인식으로 폴백
+          const { evaluateWithBrowserSpeechRecognition } = await import('./utils/azureSpeechUtils');
+          azureResult = await evaluateWithBrowserSpeechRecognition(audioBlob, appState.selectedText);
+          // 브라우저 음성 인식 결과
+        } catch (browserError) {
+          // 브라우저 음성 인식 실패, 샘플 데이터로 폴백
+          
+          // 3단계: 완전한 하드코딩 피드백으로 최종 폴백
+          const { generateCompleteFallbackEvaluation } = await import('./utils/sampleData');
+          const fallbackResult = generateCompleteFallbackEvaluation(appState.selectedText);
+          azureResult = {
+            overallScore: fallbackResult.overallScore,
+            accuracyScore: fallbackResult.accuracyScore,
+            fluencyScore: fallbackResult.fluencyScore,
+            completenessScore: fallbackResult.completenessScore,
+            prosodyScore: fallbackResult.prosodyScore,
+            words: fallbackResult.words,
+            pauseCount: fallbackResult.pauseCount,
+            confidenceScore: fallbackResult.confidenceScore
+          };
+          // 완전한 하드코딩 피드백으로 최종 폴백
+        }
       }
       
       // Azure 결과를 내부 타입으로 변환
       const convertedResult = convertAzureResultToInternalFormat(azureResult);
       
-      const { strongPoints, improvementAreas } = analyzeStrengthsAndWeaknesses(
-        convertedResult.accuracyScore,
-        convertedResult.fluencyScore,
-        convertedResult.completenessScore,
-        convertedResult.prosodyScore
-      );
+      // 하드코딩 피드백인 경우 이미 포함된 분석 사용, 아니면 새로 생성
+      let strongPoints, improvementAreas, scoreAdvice, problematicWords;
       
-      const scoreAdvice = generateScoreAdvice(convertedResult.overallScore);
-             const problematicWords = convertedResult.words
-         .filter((word: any) => word.accuracyScore < 70)
-         .map((word: any) => word.word);
+      if (azureResult.strongPoints && azureResult.improvementAreas && azureResult.scoreAdvice) {
+        // 하드코딩 피드백에서 가져온 분석 사용
+        strongPoints = azureResult.strongPoints;
+        improvementAreas = azureResult.improvementAreas;
+        scoreAdvice = azureResult.scoreAdvice;
+        problematicWords = azureResult.problematicWords || [];
+      } else {
+        // Azure API 결과인 경우 새로 생성
+        const analysis = analyzeStrengthsAndWeaknesses(
+          convertedResult.accuracyScore,
+          convertedResult.fluencyScore,
+          convertedResult.completenessScore,
+          convertedResult.prosodyScore
+        );
+        strongPoints = analysis.strongPoints;
+        improvementAreas = analysis.improvementAreas;
+        scoreAdvice = generateScoreAdvice(convertedResult.overallScore);
+        problematicWords = convertedResult.words
+          .filter((word: any) => word.accuracyScore < 70)
+          .map((word: any) => word.word);
+      }
       
       // 자신감 점수 계산 (망설임 횟수 기반)
-      console.log('🔍 자신감 점수 계산 디버깅:', {
-        pauseCount: convertedResult.pauseCount,
-        pauseCountType: typeof convertedResult.pauseCount
-      });
       const confidenceScore = Math.max(0, 100 - convertedResult.pauseCount * 10);
-      console.log('계산된 자신감 점수:', confidenceScore);
       
       const evaluationResult: EvaluationResultType = {
         accuracyScore: convertedResult.accuracyScore,
@@ -127,7 +161,33 @@ function App() {
         scoreAdvice
       };
       
-      console.log('평가 결과 생성 완료:', evaluationResult);
+      // 평가 결과 생성 완료
+      
+      // 사용자가 로그인한 경우 세션 저장
+      if (user) {
+        try {
+          const sessionData = {
+            date: new Date().toISOString(),
+            skill: 'accuracy' as const, // 기본값, 실제로는 더 정교한 분류 필요
+            difficulty: 'intermediate' as const, // 기본값
+            practiceCount: 1,
+            studyTime: Math.floor(audioBlob.size / 1000), // 대략적인 시간 계산
+            averageScore: evaluationResult.overallScore,
+            text: appState.selectedText,
+            overallScore: evaluationResult.overallScore,
+            accuracyScore: evaluationResult.accuracyScore,
+            fluencyScore: evaluationResult.fluencyScore,
+            completenessScore: evaluationResult.completenessScore,
+            prosodyScore: evaluationResult.prosodyScore,
+            pauseCount: evaluationResult.pauseCount,
+            confidenceScore: evaluationResult.confidenceScore
+          };
+          
+          await saveShadowingSession(sessionData);
+        } catch (error) {
+          console.error('세션 저장 실패:', error);
+        }
+      }
       
       setAppState(prev => ({
         ...prev,
@@ -205,8 +265,16 @@ function App() {
              </button>
            </div>
            
-           {/* 오른쪽 상단 - 로그인/즐겨찾기/로그아웃 버튼 */}
+           {/* 오른쪽 상단 - 로그인/즐겨찾기/대시보드/로그아웃 버튼 */}
            <div className="absolute top-4 right-4 flex items-center space-x-3">
+             {/* 대시보드 버튼은 항상 표시 */}
+             <button
+               onClick={handleGoToDashboard}
+               className="px-4 py-2 bg-white bg-opacity-20 rounded-lg hover:bg-opacity-30 transition-all duration-300 text-sm"
+             >
+               📊 대시보드
+             </button>
+             
              {user ? (
                <>
                  <button
@@ -270,6 +338,10 @@ function App() {
 
         {/* 컨텐츠 영역 */}
         <div className="p-10">
+          {appState.currentStep === 'dashboard' && (
+            <ShadowingDashboard onGoToPractice={handleGoToPractice} />
+          )}
+          
           {appState.currentStep === 'text-input' && (
             <TextInputStep onTextConfirm={handleTextConfirm} />
           )}

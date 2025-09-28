@@ -31,17 +31,20 @@ const TextInputStep: React.FC<TextInputStepProps> = ({ onTextConfirm }) => {
     
     try {
       // API 키 설정
-      const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+      const geminiApiKey = import.meta.env.VITE_GEMINI_API_KEY;
+      const openaiApiKey = import.meta.env.VITE_OPENAI_API_KEY;
       
-      if (!apiKey) {
-        throw new Error('Gemini API 키가 설정되지 않았습니다. .env 파일을 확인해주세요.');
+      if (!geminiApiKey && !openaiApiKey) {
+        throw new Error('API 키가 설정되지 않았습니다. .env 파일에 VITE_GEMINI_API_KEY 또는 VITE_OPENAI_API_KEY를 확인해주세요.');
       }
 
-      // 모델 설정 (Memory 프로젝트와 동일한 방식)
+      // 모델 설정 (7단계 폴백 구조)
       const modelConfigs = [
+        // Gemini 모델들 (1-4순위)
         {
           name: 'gemini-2.5-flash',
           endpoint: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent',
+          type: 'gemini',
           config: {
             temperature: 0.3,
             topK: 40,
@@ -52,6 +55,7 @@ const TextInputStep: React.FC<TextInputStepProps> = ({ onTextConfirm }) => {
         {
           name: 'gemini-2.0-flash',
           endpoint: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent',
+          type: 'gemini',
           config: {
             temperature: 0.3,
             topK: 40,
@@ -62,6 +66,7 @@ const TextInputStep: React.FC<TextInputStepProps> = ({ onTextConfirm }) => {
         {
           name: 'gemini-2.0-flash-lite',
           endpoint: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent',
+          type: 'gemini',
           config: {
             temperature: 0.3,
             topK: 40,
@@ -72,11 +77,40 @@ const TextInputStep: React.FC<TextInputStepProps> = ({ onTextConfirm }) => {
         {
           name: 'gemini-1.5-flash-8b',
           endpoint: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-8b:generateContent',
+          type: 'gemini',
           config: {
             temperature: 0.3,
             topK: 40,
             topP: 0.95,
             maxOutputTokens: 2048
+          }
+        },
+        // GPT 모델들 (5-7순위)
+        {
+          name: 'gpt-4o-mini',
+          endpoint: 'https://api.openai.com/v1/chat/completions',
+          type: 'openai',
+          config: {
+            temperature: 0.3,
+            max_tokens: 2048
+          }
+        },
+        {
+          name: 'gpt-3.5-turbo-0125',
+          endpoint: 'https://api.openai.com/v1/chat/completions',
+          type: 'openai',
+          config: {
+            temperature: 0.3,
+            max_tokens: 2048
+          }
+        },
+        {
+          name: 'gpt-4.1-mini',
+          endpoint: 'https://api.openai.com/v1/chat/completions',
+          type: 'openai',
+          config: {
+            temperature: 0.3,
+            max_tokens: 2048
           }
         }
       ];
@@ -85,12 +119,19 @@ const TextInputStep: React.FC<TextInputStepProps> = ({ onTextConfirm }) => {
       
       for (const modelConfig of modelConfigs) {
         try {
-          const response = await fetch(`${modelConfig.endpoint}?key=${apiKey}`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
+          // API 키 확인
+          const apiKey = modelConfig.type === 'gemini' ? geminiApiKey : openaiApiKey;
+          if (!apiKey) {
+            console.log(`⚠️ ${modelConfig.name} 모델 API 키 없음, 다음 모델 시도...`);
+            continue;
+          }
+
+          let requestBody;
+          let endpoint = modelConfig.endpoint;
+
+          if (modelConfig.type === 'gemini') {
+            endpoint = `${modelConfig.endpoint}?key=${apiKey}`;
+            requestBody = {
               contents: [{
                 parts: [{
                   text: `중국어 학습용 텍스트를 생성해주세요. 주제: ${aiPrompt}. 
@@ -102,7 +143,31 @@ const TextInputStep: React.FC<TextInputStepProps> = ({ onTextConfirm }) => {
                 }]
               }],
               generationConfig: modelConfig.config
-            })
+            };
+          } else if (modelConfig.type === 'openai') {
+            requestBody = {
+              model: modelConfig.name,
+              messages: [{
+                role: 'user',
+                content: `중국어 학습용 텍스트를 생성해주세요. 주제: ${aiPrompt}. 
+                         요구사항: 
+                         - 중국어로만 작성
+                         - 학습용으로 적합한 난이도
+                         - 3-5문장 정도
+                         - 병음이나 번역 없이 순수 중국어만`
+              }],
+              temperature: modelConfig.config.temperature,
+              max_tokens: modelConfig.config.max_tokens
+            };
+          }
+
+          const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(modelConfig.type === 'openai' && { 'Authorization': `Bearer ${apiKey}` })
+            },
+            body: JSON.stringify(requestBody)
           });
 
           if (!response.ok) {
@@ -113,8 +178,10 @@ const TextInputStep: React.FC<TextInputStepProps> = ({ onTextConfirm }) => {
             const isLimitError = errorMessage.includes('quota') || 
                                 errorMessage.includes('limit') || 
                                 errorMessage.includes('rate') ||
+                                errorMessage.includes('overloaded') ||
                                 response.status === 429 ||
-                                response.status === 403;
+                                response.status === 403 ||
+                                response.status === 503;
             
             if (isLimitError) {
               console.log(`⚠️ ${modelConfig.name} 모델 API limit 도달: ${errorMessage}`);
@@ -127,26 +194,53 @@ const TextInputStep: React.FC<TextInputStepProps> = ({ onTextConfirm }) => {
 
           const data = await response.json();
           
-          if (data.candidates && data.candidates[0] && data.candidates[0].content) {
-            const generatedText = data.candidates[0].content.parts[0].text;
+          let generatedText = '';
+          
+          if (modelConfig.type === 'gemini') {
+            if (data.candidates && data.candidates[0] && data.candidates[0].content) {
+              generatedText = data.candidates[0].content.parts[0].text;
+            } else {
+              throw new Error('Gemini 응답 형식이 올바르지 않습니다.');
+            }
+          } else if (modelConfig.type === 'openai') {
+            if (data.choices && data.choices[0] && data.choices[0].message) {
+              generatedText = data.choices[0].message.content;
+            } else {
+              throw new Error('OpenAI 응답 형식이 올바르지 않습니다.');
+            }
+          }
+          
+          if (generatedText) {
             setGeneratedText(generatedText);
             return; // 성공하면 함수 종료
           } else {
-            throw new Error('AI 응답 형식이 올바르지 않습니다.');
+            throw new Error('AI 응답에서 텍스트를 추출할 수 없습니다.');
           }
         } catch (error) {
           console.error(`${modelConfig.name} 모델 오류:`, error);
           
-          // API limit 에러가 아니면 다음 모델 시도하지 않음
-          if (!error.message.startsWith('LIMIT_ERROR:')) {
+          // 에러 타입별 처리
+          const isLimitError = error.message.startsWith('LIMIT_ERROR:');
+          const isAuthError = error.message.includes('401') || error.message.includes('unauthorized');
+          const isConfigError = error.message.includes('API 키') || error.message.includes('설정');
+          
+          if (isConfigError) {
+            console.log(`⚠️ ${modelConfig.name} 모델 설정 오류, 다음 모델 시도...`);
+            lastError = error;
+            continue; // 설정 오류는 다음 모델 시도
+          } else if (isLimitError) {
+            console.log(`⚠️ ${modelConfig.name} 모델 API limit 도달, 다음 모델 시도...`);
+            lastError = error;
+            continue; // API limit은 다음 모델 시도
+          } else if (isAuthError) {
+            console.log(`❌ ${modelConfig.name} 모델 인증 오류, 다음 모델 시도...`);
+            lastError = error;
+            continue; // 인증 오류도 다음 모델 시도
+          } else {
             console.log(`❌ ${modelConfig.name} 모델에서 치명적 에러 발생, 다음 모델 시도 중단`);
             lastError = error;
-            break;
+            break; // 치명적 에러는 중단
           }
-          
-          console.log(`🔄 ${modelConfig.name} 모델 실패, 다음 모델 시도...`);
-          lastError = error;
-          continue; // 다음 모델 시도
         }
       }
       
@@ -158,7 +252,11 @@ const TextInputStep: React.FC<TextInputStepProps> = ({ onTextConfirm }) => {
       
       // API 오류 시 대체 텍스트 제공
       const fallbackTexts = [
-        `当前，全球经济面临诸多挑战。各国政府正积极采取措施，以稳定市场信心。预计未来一段时间内，经济走势仍将复杂多变。`
+        `当前，全球经济面临诸多挑战。各国政府正积极采取措施，以稳定市场信心。预计未来一段时间内，经济走势仍将复杂多变。`,
+        `今天天气很好，阳光明媚。我决定去公园散步，呼吸新鲜空气。公园里有很多人在锻炼身体，孩子们在草地上玩耍。`,
+        `学习中文是一件很有趣的事情。通过不断练习，我们可以提高自己的语言水平。每天坚持学习，一定会有很大的进步。`,
+        `中国有着悠久的历史和灿烂的文化。从古代的四大发明到现代的高科技发展，中国一直在为世界文明做出重要贡献。`,
+        `健康的生活方式对每个人都很重要。我们应该保持规律的作息时间，均衡饮食，适量运动。这样才能拥有健康的身体。`
       ];
       
       const randomText = fallbackTexts[Math.floor(Math.random() * fallbackTexts.length)];

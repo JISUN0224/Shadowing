@@ -18,14 +18,7 @@ const FavoritesModal: React.FC<FavoritesModalProps> = ({
   const [editingTitle, setEditingTitle] = useState<string | null>(null);
   const [editingText, setEditingText] = useState('');
 
-  // 디버깅용 로그
-  console.log('FavoritesModal 렌더링:', { 
-    isOpen, 
-    favoritesCount: favorites.length, 
-    loading,
-    selectedItemsCount: selectedItems.size,
-    favorites: favorites.map(f => ({ id: f.id, title: f.title, textPreview: f.text.substring(0, 30) }))
-  });
+  // FavoritesModal 렌더링
 
   // 체크박스 토글
   const toggleSelection = (favoriteId: string) => {

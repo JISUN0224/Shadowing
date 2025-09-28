@@ -4,12 +4,12 @@
 export const convertBlobToWav = async (blob: Blob): Promise<Blob> => {
   // 이미 WAV 형식인 경우 그대로 반환
   if (blob.type === 'audio/wav') {
-    console.log('이미 WAV 형식입니다.');
+    // 이미 WAV 형식
     return blob;
   }
 
   try {
-    console.log('오디오 변환 시작:', { originalType: blob.type, size: blob.size });
+    // 오디오 변환 시작
     
     // AudioContext를 사용하여 오디오 데이터 변환
     const arrayBuffer = await blob.arrayBuffer();
@@ -17,18 +17,14 @@ export const convertBlobToWav = async (blob: Blob): Promise<Blob> => {
       sampleRate: 16000 // Azure SDK 권장 샘플레이트
     });
     
-    console.log('AudioContext 생성 완료');
+    // AudioContext 생성 완료
     
     const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-    console.log('오디오 디코딩 완료:', {
-      duration: audioBuffer.duration,
-      sampleRate: audioBuffer.sampleRate,
-      numberOfChannels: audioBuffer.numberOfChannels
-    });
+    // 오디오 디코딩 완료
     
     // WAV 형식으로 인코딩
     const wavBlob = await encodeAudioBufferToWav(audioBuffer);
-    console.log('WAV 변환 완료:', { size: wavBlob.size });
+    // WAV 변환 완료
     
     return wavBlob;
   } catch (error) {
@@ -52,13 +48,7 @@ const encodeAudioBufferToWav = async (audioBuffer: AudioBuffer): Promise<Blob> =
   const dataSize = length * blockAlign;
   const fileSize = 36 + dataSize;
 
-  console.log('WAV 헤더 정보:', {
-    length,
-    numberOfChannels,
-    sampleRate,
-    dataSize,
-    fileSize
-  });
+  // WAV 헤더 정보
 
   // WAV 헤더 생성
   const buffer = new ArrayBuffer(44 + dataSize);
@@ -115,12 +105,7 @@ export const prepareAudioForAzure = async (blob: Blob): Promise<Blob> => {
     // WAV 형식으로 변환
     const wavBlob = await convertBlobToWav(blob);
     
-    console.log('Azure용 오디오 준비 완료:', {
-      originalType: blob.type,
-      originalSize: blob.size,
-      convertedType: wavBlob.type,
-      convertedSize: wavBlob.size
-    });
+    // Azure용 오디오 준비 완료
     
     return wavBlob;
   } catch (error) {

@@ -66,17 +66,24 @@ const ShadowingPracticeStep: React.FC<ShadowingPracticeStepProps> = ({
   const [isLoadingAudio, setIsLoadingAudio] = useState(false);
   const [selectedVoice, setSelectedVoice] = useState(VOICE_OPTIONS[0]); // 기본값: 뉴스 앵커
   const [showVoiceSelect, setShowVoiceSelect] = useState(false);
+  const [playbackSpeed, setPlaybackSpeed] = useState(1.0); // 재생 속도 상태
   
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const synthesizedAudioRef = useRef<HTMLAudioElement | null>(null);
   const highlightTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+  // 재생 속도 변경 함수
+  const handleSpeedChange = (speed: number) => {
+    setPlaybackSpeed(speed);
+    // TTS 재생성으로 자연스러운 속도 조정 (useEffect에서 처리)
+  };
+
   // 컴포넌트 마운트 시 병음 생성 및 TTS 음성 생성
   useEffect(() => {
     generatePinyin();
     generateTTSAudio();
-  }, [text, selectedVoice]);
+  }, [text, selectedVoice, playbackSpeed]); // playbackSpeed 변경 시에도 TTS 재생성
 
   // 병음 생성 (실제로는 API 호출)
   const generatePinyin = () => {
@@ -89,13 +96,13 @@ const ShadowingPracticeStep: React.FC<ShadowingPracticeStepProps> = ({
   const generateTTSAudio = async () => {
     setIsLoadingAudio(true);
     try {
-      // Azure Speech Services API 호출
-      const audioUrl = await generateAzureTTS(text, selectedVoice.id);
+      // Azure Speech Services API 호출 (재생 속도 포함)
+      const audioUrl = await generateAzureTTS(text, selectedVoice.id, playbackSpeed);
       synthesizedAudioRef.current = new Audio(audioUrl);
       
       // 오디오 로드 완료 후 이벤트 리스너 추가
       synthesizedAudioRef.current.addEventListener('loadeddata', () => {
-        console.log('Azure TTS 오디오 로드 완료');
+        // 오디오 로드 완료
       });
       
       // 오디오 재생 완료 시 하이라이트 리셋
@@ -238,7 +245,7 @@ const ShadowingPracticeStep: React.FC<ShadowingPracticeStepProps> = ({
         }
       }
       
-      console.log('선택된 오디오 형식:', selectedType);
+      // 선택된 오디오 형식
       
       const options = {
         mimeType: selectedType,
@@ -367,6 +374,8 @@ const ShadowingPracticeStep: React.FC<ShadowingPracticeStepProps> = ({
          onEvaluate={handleEvaluate}
          onToggleVoiceSelect={() => setShowVoiceSelect(!showVoiceSelect)}
          showVoiceSelect={showVoiceSelect}
+         playbackSpeed={playbackSpeed}
+         onSpeedChange={handleSpeedChange}
        />
 
              {/* 하단 네비게이션 */}
@@ -428,15 +437,12 @@ const convertToPinyin = (text: string): string => {
   return text.split('').map(char => pinyinMap[char] || char).join(' ');
 };
 
-const generateAzureTTS = async (text: string, voiceId: string): Promise<string> => {
+const generateAzureTTS = async (text: string, voiceId: string, speed: number = 1.0): Promise<string> => {
   // 환경 변수 검증
   const subscriptionKey = import.meta.env.VITE_AZURE_SPEECH_KEY;
   const region = import.meta.env.VITE_AZURE_SPEECH_REGION || 'eastasia';
 
-  console.log('🔍 환경변수 확인:', {
-    subscriptionKey: subscriptionKey ? `✅ 설정됨 (${subscriptionKey.substring(0, 10)}...)` : '❌ 설정되지 않음',
-    region: region ? `✅ 설정됨 (${region})` : '❌ 설정되지 않음'
-  });
+  // 환경변수 확인
 
   if (!subscriptionKey) {
     throw new Error('VITE_AZURE_SPEECH_KEY가 설정되지 않았습니다.');
@@ -450,20 +456,40 @@ const generateAzureTTS = async (text: string, voiceId: string): Promise<string> 
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&apos;');
 
-  // 긴 텍스트를 문장 단위로 분할하여 처리
-  const sentences = escapedText.split(/[。！？.!?]/).filter(s => s.trim().length > 0);
+  // 긴 텍스트를 문장 단위로 분할하여 처리 (구두점 포함)
+  const sentenceParts = escapedText.split(/([。！？.!?])/).filter(s => s.trim().length > 0);
   
-  // 각 문장을 개별적으로 처리하여 SSML 생성
-  const sentenceElements = sentences.map(sentence => 
-    `<prosody rate="medium" pitch="medium">${sentence.trim()}</prosody>`
-  ).join(' ');
+  // 속도에 따른 SSML rate 설정 (조정된 속도)
+  const getRateValue = (speed: number): string => {
+    // Azure TTS SSML rate 값 - 조정된 속도
+    if (speed === 0.5) return '0.6';     // 약간 느리게 (0.5배속)
+    if (speed === 1.0) return '0.8';     // 기본 속도 (1.0배속)  
+    if (speed === 1.5) return '1.2';     // 빠르게 (1.5배속)
+    return '0.8';                        // 기본값
+  };
+
+  // 문장과 구두점을 조합하여 SSML 생성 (휴지 포함)
+  const sentenceElements: string[] = [];
+  for (let i = 0; i < sentenceParts.length; i += 2) {
+    const sentence = sentenceParts[i]?.trim();
+    const punctuation = sentenceParts[i + 1];
+    
+    if (sentence) {
+      sentenceElements.push(`<prosody rate="${getRateValue(speed)}" pitch="medium">${sentence}</prosody>`);
+      
+      // 구두점이 있으면 휴지 추가
+      if (punctuation && /[。！？.!?]/.test(punctuation)) {
+        sentenceElements.push(`<break time="800ms"/>`); // 0.8초 휴지
+      }
+    }
+  }
 
   // 성별에 따른 gender 속성 설정
   const gender = voiceId.includes('Xiaoxiao') || voiceId.includes('Xiaoyi') ? 'Female' : 'Male';
   
   const ssml = `<speak version='1.0' xml:lang='zh-CN'>
     <voice xml:lang='zh-CN' xml:gender='${gender}' name='${voiceId}'>
-      ${sentenceElements}
+      ${sentenceElements.join(' ')}
     </voice>
   </speak>`;
 
@@ -471,12 +497,7 @@ const generateAzureTTS = async (text: string, voiceId: string): Promise<string> 
     // API 키 검증 및 정리
     const cleanKey = subscriptionKey?.trim().replace(/[^\x00-\x7F]/g, '');
     
-    console.log('Azure TTS request started:', {
-      region,
-      textLength: text.length,
-      keyLength: cleanKey?.length,
-      keyPreview: cleanKey?.substring(0, 10) + '...'
-    });
+    // Azure TTS 요청 시작
 
     const response = await fetch(`https://${region}.tts.speech.microsoft.com/cognitiveservices/v1`, {
       method: 'POST',

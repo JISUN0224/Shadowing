@@ -145,45 +145,6 @@ const FeedbackSection: React.FC<FeedbackSectionProps> = ({
         </div>
       )}
 
-      {/* 학습 진행 상황 */}
-      <div className="bg-purple-50 rounded-2xl p-6 border border-purple-200">
-        <h3 className="text-xl font-bold text-purple-800 mb-4 flex items-center">
-          <span className="text-2xl mr-3">📊</span>
-          학습 진행 상황
-        </h3>
-        
-        <div className="grid md:grid-cols-3 gap-4">
-          <div className="bg-white rounded-lg p-4 text-center border border-purple-200">
-            <div className="text-3xl mb-2">🎯</div>
-            <div className="text-2xl font-bold text-purple-700">
-              {((strongPoints.length / (strongPoints.length + improvementAreas.length)) * 100 || 0).toFixed(0)}%
-            </div>
-            <div className="text-purple-600 text-sm">목표 달성률</div>
-          </div>
-          
-          <div className="bg-white rounded-lg p-4 text-center border border-purple-200">
-            <div className="text-3xl mb-2">📈</div>
-            <div className="text-2xl font-bold text-purple-700">
-              {improvementAreas.length}
-            </div>
-            <div className="text-purple-600 text-sm">개선 영역</div>
-          </div>
-          
-          <div className="bg-white rounded-lg p-4 text-center border border-purple-200">
-            <div className="text-3xl mb-2">🔥</div>
-            <div className="text-2xl font-bold text-purple-700">
-              {individualProblematicWords.length}
-            </div>
-            <div className="text-purple-600 text-sm">집중 연습 단어</div>
-          </div>
-        </div>
-
-        <div className="mt-4 p-4 bg-white rounded-lg border border-purple-200">
-          <p className="text-purple-700 text-center">
-            <strong>다음 목표:</strong> 개선 영역을 1-2개씩 단계적으로 극복해보세요!
-          </p>
-        </div>
-      </div>
 
       {/* 개별 단어 연습 모달 */}
       {selectedWordForPractice && (

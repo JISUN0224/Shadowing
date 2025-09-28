@@ -269,12 +269,10 @@ const DetailedAnalysis: React.FC<DetailedAnalysisProps> = ({
 }) => {
 
   // 🔍 임시 디버깅 로그 - 나중에 삭제할 것
-  console.log("=== DetailedAnalysis 받은 words 데이터 ===");
-  console.log("words 배열 길이:", words.length);
-  console.log("첫 번째 단어 전체 구조:", JSON.stringify(words[0], null, 2));
+  // DetailedAnalysis words 데이터 처리
   
     if (words[0]?.syllables) {
-    console.log("Syllables 구조:", JSON.stringify(words[0].syllables, null, 2));
+    // Syllables 구조
   }
   // 🔍 디버깅 로그 끝
 

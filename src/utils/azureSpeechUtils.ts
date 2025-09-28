@@ -8,11 +8,7 @@ const getSpeechConfig = () => {
   const region = (import.meta as any).env.VITE_AZURE_SPEECH_REGION;
   const endpoint = (import.meta as any).env.VITE_AZURE_SPEECH_ENDPOINT;
   
-  console.log('🔍 환경변수 확인:', {
-    apiKey: apiKey ? `✅ 설정됨 (${apiKey.substring(0, 10)}...)` : '❌ 설정되지 않음',
-    region: region ? `✅ 설정됨 (${region})` : '❌ 설정되지 않음',
-    endpoint: endpoint ? `✅ 설정됨 (${endpoint})` : '❌ 설정되지 않음'
-  });
+  // 환경변수 확인
   
   if (!apiKey || !region) {
     console.error('필요한 환경변수:', 'VITE_AZURE_SPEECH_KEY, VITE_AZURE_SPEECH_REGION');
@@ -28,13 +24,117 @@ const getSpeechConfig = () => {
   return speechConfig;
 };
 
+// 브라우저 내장 음성 인식을 사용한 폴백 평가
+export const evaluateWithBrowserSpeechRecognition = async (
+  audioBlob: Blob,
+  referenceText: string
+): Promise<any> => {
+  return new Promise((resolve, reject) => {
+    // 브라우저 내장 음성 인식 시작
+    
+    // Web Speech API 지원 확인
+    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+      reject(new Error('브라우저가 음성 인식을 지원하지 않습니다.'));
+      return;
+    }
+
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    const recognition = new SpeechRecognition();
+    
+    // 중국어 설정
+    recognition.lang = 'zh-CN';
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+
+    recognition.onresult = (event: any) => {
+      const transcript = event.results[0][0].transcript;
+      // 브라우저 인식 결과
+      
+      // 간단한 평가 로직 (실제로는 더 정교한 알고리즘 필요)
+      const accuracy = calculateSimpleAccuracy(transcript, referenceText);
+      const fluency = calculateSimpleFluency(transcript, referenceText);
+      const completeness = calculateSimpleCompleteness(transcript, referenceText);
+      
+      const result = {
+        overallScore: Math.round((accuracy + fluency + completeness) / 3),
+        accuracyScore: accuracy,
+        fluencyScore: fluency,
+        completenessScore: completeness,
+        prosodyScore: 0,
+        confidenceScore: 0,
+        pauseCount: 0,
+        words: [],
+        syllables: [],
+        phonemes: []
+      };
+      
+      // 브라우저 평가 결과
+      resolve(result);
+    };
+
+    recognition.onerror = (event: any) => {
+      console.error('브라우저 음성 인식 오류:', event.error);
+      reject(new Error(`브라우저 음성 인식 실패: ${event.error}`));
+    };
+
+    recognition.onend = () => {
+      // 브라우저 음성 인식 종료
+    };
+
+    // 오디오 재생 후 음성 인식 시작
+    const audio = new Audio();
+    audio.src = URL.createObjectURL(audioBlob);
+    audio.onended = () => {
+      recognition.start();
+    };
+    audio.play();
+  });
+};
+
+// 간단한 정확도 계산
+const calculateSimpleAccuracy = (transcript: string, reference: string): number => {
+  const transcriptChars = transcript.replace(/\s/g, '').split('');
+  const referenceChars = reference.replace(/\s/g, '').split('');
+  
+  let matches = 0;
+  const maxLength = Math.max(transcriptChars.length, referenceChars.length);
+  
+  for (let i = 0; i < Math.min(transcriptChars.length, referenceChars.length); i++) {
+    if (transcriptChars[i] === referenceChars[i]) {
+      matches++;
+    }
+  }
+  
+  return Math.round((matches / maxLength) * 100);
+};
+
+// 간단한 유창성 계산
+const calculateSimpleFluency = (transcript: string, reference: string): number => {
+  const transcriptWords = transcript.split(/\s+/).length;
+  const referenceWords = reference.split(/\s+/).length;
+  
+  // 단어 수가 비슷하면 유창성 점수 높음
+  const ratio = Math.min(transcriptWords, referenceWords) / Math.max(transcriptWords, referenceWords);
+  return Math.round(ratio * 100);
+};
+
+// 간단한 완성도 계산
+const calculateSimpleCompleteness = (transcript: string, reference: string): number => {
+  const transcriptLength = transcript.replace(/\s/g, '').length;
+  const referenceLength = reference.replace(/\s/g, '').length;
+  
+  const ratio = Math.min(transcriptLength, referenceLength) / Math.max(transcriptLength, referenceLength);
+  return Math.round(ratio * 100);
+};
+
 // Azure Speech Assessment API를 사용한 발음 평가
 export const evaluatePronunciationWithAzure = async (
   audioBlob: Blob,
   referenceText: string
 ): Promise<any> => {
   try {
-    console.log('🔍 Azure Speech Assessment 시작...');
+    // Azure Speech Assessment 시작
     
     // Speech Config 가져오기
     const speechConfig = getSpeechConfig();
@@ -44,7 +144,7 @@ export const evaluatePronunciationWithAzure = async (
     
     // 오디오를 Azure SDK에 맞는 형식으로 변환
     const wavBlob = await prepareAudioForAzure(audioBlob);
-    console.log('✅ 오디오 변환 완료:', wavBlob.size, 'bytes');
+    // 오디오 변환 완료
     
     // Pronunciation Assessment 설정
     const pronunciationAssessmentConfig = new SpeechSDK.PronunciationAssessmentConfig(
@@ -74,7 +174,7 @@ export const evaluatePronunciationWithAzure = async (
     
     const recognizer = new SpeechSDK.SpeechRecognizer(speechConfig, audioConfig);
     
-    console.log('🎤 Azure Speech Recognition 시작...');
+    // Azure Speech Recognition 시작
     
     // 일반 Speech Recognition으로 먼저 테스트
     const result = await new Promise<SpeechSDK.SpeechRecognitionResult>((resolve, reject) => {
@@ -84,8 +184,7 @@ export const evaluatePronunciationWithAzure = async (
       );
     });
     
-    console.log('✅ Azure Speech Recognition 완료');
-    console.log('인식 결과:', result.text);
+    // Azure Speech Recognition 완료
     
     // Pronunciation Assessment 실행
     const pronunciationRecognizer = new SpeechSDK.SpeechRecognizer(speechConfig, audioConfig);
@@ -96,29 +195,7 @@ export const evaluatePronunciationWithAzure = async (
         (result) => {
           const pronunciationAssessmentResult = SpeechSDK.PronunciationAssessmentResult.fromResult(result);
           
-          // 🔍 Azure API 응답 구조 디버깅 로그
-          console.log('=== Azure Pronunciation Assessment 전체 응답 구조 ===');
-          console.log('전체 결과:', pronunciationAssessmentResult);
-          console.log('Detail Result:', pronunciationAssessmentResult.detailResult);
-          console.log('Pronunciation Assessment:', pronunciationAssessmentResult.detailResult.PronunciationAssessment);
-          console.log('ProsodyScore 값:', pronunciationAssessmentResult.detailResult.PronunciationAssessment.ProsodyScore);
-          console.log('ProsodyScore 타입:', typeof pronunciationAssessmentResult.detailResult.PronunciationAssessment.ProsodyScore);
-          console.log('Words 배열:', pronunciationAssessmentResult.detailResult.Words);
-          
-          // 단어별 상세 정보 로깅
-          if (pronunciationAssessmentResult.detailResult.Words) {
-            console.log('=== 단어별 상세 정보 ===');
-            pronunciationAssessmentResult.detailResult.Words.forEach((word: any, index: number) => {
-              console.log(`단어 ${index + 1}:`, {
-                word: word.Word,
-                pronunciationAssessment: word.PronunciationAssessment,
-                duration: word.Duration,
-                offset: word.Offset,
-                syllables: word.Syllables,
-                phonemes: word.Phonemes
-              });
-            });
-          }
+          // Azure API 응답 처리
           
           // 휴지 횟수 계산
           const calculatePauseCount = (words: any[]) => {
@@ -155,8 +232,7 @@ export const evaluatePronunciationWithAzure = async (
             phonemes: [] // Azure SDK에서 제공하지 않는 속성
           };
           
-          console.log('=== 최종 Assessment Data ===');
-          console.log(assessmentData);
+          // 최종 Assessment Data
           
           resolve(assessmentData);
         },
@@ -164,7 +240,7 @@ export const evaluatePronunciationWithAzure = async (
       );
     });
     
-    console.log('✅ Azure Assessment 완료');
+    // Azure Assessment 완료
     return assessmentResult;
     
   } catch (error) {
